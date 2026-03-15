@@ -27,6 +27,13 @@ export function TradeTable({ trades }: TradeTableProps) {
     currentPage * itemsPerPage
   );
 
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      + ', '
+      + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  };
+
   if (!isMounted) {
     return (
       <div className="rounded-md border border-white/5 bg-[#13131A] h-[600px] flex items-center justify-center">
@@ -44,49 +51,99 @@ export function TradeTable({ trades }: TradeTableProps) {
               <TableHead className="text-xs uppercase text-muted-foreground font-semibold">Date</TableHead>
               <TableHead className="text-xs uppercase text-muted-foreground font-semibold">Market</TableHead>
               <TableHead className="text-xs uppercase text-muted-foreground font-semibold">Direction</TableHead>
-              <TableHead className="text-xs uppercase text-muted-foreground font-semibold text-right">Size</TableHead>
+              <TableHead className="text-xs uppercase text-muted-foreground font-semibold text-right">Size (USDT)</TableHead>
               <TableHead className="text-xs uppercase text-muted-foreground font-semibold text-right">Price</TableHead>
               <TableHead className="text-xs uppercase text-muted-foreground font-semibold">Type</TableHead>
               <TableHead className="text-xs uppercase text-muted-foreground font-semibold text-right">P&L</TableHead>
-              <TableHead className="w-[100px]"></TableHead>
+              <TableHead className="w-[90px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedTrades.map((trade) => (
               <TableRow key={trade.id} className="border-white/5 hover:bg-white/[0.02]">
+
+                {/* Date */}
                 <TableCell className="font-mono-data text-xs py-3 text-muted-foreground">
-                  {new Date(trade.timestamp).toLocaleDateString()}
+                  {formatDate(trade.timestamp)}
                 </TableCell>
+
+                {/* Market */}
                 <TableCell className="font-bold py-3 text-sm">{trade.market}</TableCell>
+
+                {/* Direction badge */}
                 <TableCell className="py-3">
-                  <Badge className={trade.type === 'BUY' ? 'bg-status-buy text-black' : 'bg-status-sell text-white'}>
+                  <Badge
+                    className={
+                      trade.type === 'BUY'
+                        ? 'bg-[#00D084] text-black text-xs font-bold px-2 py-0.5'
+                        : 'bg-[#FF4444] text-white text-xs font-bold px-2 py-0.5'
+                    }
+                  >
                     {trade.type}
                   </Badge>
                 </TableCell>
-                <TableCell className="font-mono-data text-sm text-right py-3">{trade.quantity.toFixed(3)}</TableCell>
-                <TableCell className="font-mono-data text-sm text-right py-3">${trade.entryPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+
+                {/* Size in USDT */}
+                <TableCell className="font-mono-data text-sm text-right py-3">
+                  ${trade.size.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </TableCell>
+
+                {/* Entry price */}
+                <TableCell className="font-mono-data text-sm text-right py-3 text-muted-foreground">
+                  ${trade.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </TableCell>
+
+                {/* Order type badge */}
                 <TableCell className="py-3">
-                  <Badge variant="outline" className={trade.orderType === 'MARKET' ? 'border-status-amber text-status-amber' : 'border-status-blue text-status-blue'}>
+                  <Badge
+                    variant="outline"
+                    className={
+                      trade.orderType === 'MARKET'
+                        ? 'border-[#FDC20B] text-[#FDC20B] text-xs px-2 py-0.5'
+                        : 'border-[#4C8BE6] text-[#4C8BE6] text-xs px-2 py-0.5'
+                    }
+                  >
                     {trade.orderType}
                   </Badge>
                 </TableCell>
-                <TableCell className={`font-mono-data text-sm text-right py-3 ${trade.pnl && trade.pnl > 0 ? 'text-status-buy' : trade.pnl && trade.pnl < 0 ? 'text-status-sell' : 'text-muted-foreground'}`}>
-                  {trade.pnl ? `${trade.pnl > 0 ? '+' : ''}${trade.pnl.toFixed(2)}` : '—'}
+
+                {/* P&L */}
+                <TableCell
+                  className={`font-mono-data text-sm text-right py-3 ${
+                    trade.pnl !== null && trade.pnl > 0
+                      ? 'text-[#00D084]'
+                      : trade.pnl !== null && trade.pnl < 0
+                      ? 'text-[#FF4444]'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  {trade.pnl !== null
+                    ? `${trade.pnl > 0 ? '+' : ''}$${Math.abs(trade.pnl).toFixed(2)}`
+                    : '—'}
                 </TableCell>
+
+                {/* Verify on-chain link — uses real txHash */}
                 <TableCell className="py-3 text-right">
-                  <button className="text-[10px] text-muted-foreground hover:text-primary flex items-center gap-1 ml-auto">
-                    Verify <ExternalLink className="w-2 h-2" />
-                  </button>
+                  <a
+                    href={`https://explorer.injective.network/transaction/${trade.txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-muted-foreground hover:text-primary flex items-center gap-1 ml-auto transition-colors duration-200"
+                  >
+                    Verify <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
                 </TableCell>
+
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
 
+      {/* Pagination */}
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
-          Page {currentPage} of {totalPages || 1}
+          Page {currentPage} of {totalPages || 1} &nbsp;·&nbsp; {trades.length} total trades
         </span>
         <div className="flex gap-2">
           <Button

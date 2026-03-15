@@ -1,76 +1,142 @@
-'use server';
 /**
- * @fileOverview An AI behavioral trading coach that analyzes a user's on-chain trading history.
- * Its purpose is to reveal specific behavioral patterns, identify financial 'blind spots',
- * highlight 'hidden edges' of success, and suggest 'this week's focus' for improvement,
- * all substantiated with specific trade data references.
+ * src/ai/flows/analyze-trading-behavior-flow.ts
  *
- * - analyzeTradingBehavior - A function that handles the trading behavior analysis process.
- * - AnalyzeTradingBehaviorInput - The input type for the analyzeTradingBehavior function.
- * - AnalyzeTradingBehaviorOutput - The return type for the analyzeTradingBehavior function.
+ * Genkit flow for behavioral trading analysis.
+ * Uses pre-computed stats as input to Gemini.
+ * Prompt is built as a plain string function — no Handlebars interpolation.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-// Assuming a basic structure for a Trade object consistent with the project's mock data.
-// This schema will be used to define the structure of individual trade objects.
-const TradeSchema = z.object({
-  id: z.string().describe('Unique identifier for the trade.'),
-  type: z.enum(['BUY', 'SELL']).describe('Type of trade: BUY or SELL.'),
-  status: z.enum(['OPEN', 'CLOSED']).describe('Status of the trade: OPEN or CLOSED.'),
-  entryPrice: z.number().describe('The price at which the trade was entered.'),
-  exitPrice: z.number().nullable().describe('The price at which the trade was exited (null if OPEN).'),
-  quantity: z.number().describe('The quantity of the asset traded.'),
-  pnl: z.number().nullable().describe('Profit and Loss for the trade (null if OPEN).'),
-  timestamp: z.string().datetime().describe('Timestamp of the trade.'),
-  // Additional trade details can be added here if necessary for deeper analysis.
+// ─── Input Schema ─────────────────────────────────────────────────────────────
+
+const WinRateByDaySchema = z.object({
+  first: z.number(),
+  second: z.number(),
+  third: z.number(),
+  fourthPlus: z.number(),
+});
+
+const MarketStatSchema = z.object({
+  wins: z.number(),
+  total: z.number(),
+  winRate: z.number(),
+});
+
+const TradeSnapshotSchema = z.object({
+  market: z.string(),
+  type: z.enum(['BUY', 'SELL']),
+  size: z.number(),
+  pnl: z.number().nullable(),
 });
 
 export const AnalyzeTradingBehaviorInputSchema = z.object({
-  trades: z.array(TradeSchema).describe('An array of the user\'s complete trading history, ordered chronologically.'),
+  walletAddress: z.string(),
+  totalTrades: z.number(),
+  winRate: z.number(),
+  avgWinSize: z.number(),
+  avgLossSize: z.number(),
+  sizeRatio: z.number(),
+  marketOrderCount: z.number(),
+  limitOrderCount: z.number(),
+  marketOrderWinRate: z.number(),
+  limitOrderWinRate: z.number(),
+  winRateByDayPosition: WinRateByDaySchema,
+  winRateByMarket: z.record(z.string(), MarketStatSchema),
+  derivativeWinRate: z.number(),
+  spotWinRate: z.number(),
+  topLosingTrades: z.array(TradeSnapshotSchema),
+  topWinningTrades: z.array(TradeSnapshotSchema),
 });
+
 export type AnalyzeTradingBehaviorInput = z.infer<typeof AnalyzeTradingBehaviorInputSchema>;
 
+// ─── Output Schema ────────────────────────────────────────────────────────────
+
 export const AnalyzeTradingBehaviorOutputSchema = z.object({
-  behavioralPatterns: z.string().describe('Identified recurring behavioral patterns, biases, or tendencies in trading, explicitly referencing specific trade IDs and outcomes.'),
-  blindSpots: z.string().describe('Identified financial blind spots or consistent errors that lead to losses or missed opportunities, explicitly referencing specific trade IDs and their financial impact.'),
-  hiddenEdges: z.string().describe('Highlighted successful strategies, recurring advantageous conditions, or hidden strengths in trading, explicitly referencing specific trade IDs and their positive outcomes.'),
-  weeklyFocus: z.string().describe('One to two clear, actionable areas for the trader to focus on for improvement or optimization in the upcoming week.'),
+  tradingDna: z.string().describe('2-3 sentences on trader type and dominant pattern.'),
+  blindSpots: z.string().describe('Three numbered blind spots with specific metrics.'),
+  hiddenEdges: z.string().describe('What the trader is genuinely doing well.'),
+  weeklyFocus: z.string().describe('One specific, concrete, actionable change.'),
 });
+
 export type AnalyzeTradingBehaviorOutput = z.infer<typeof AnalyzeTradingBehaviorOutputSchema>;
 
-/**
- * Analyzes a user's trading history to provide a personalized behavioral trading report.
- * The analysis includes identified behavioral patterns, financial blind spots, hidden edges of success,
- * and actionable focus areas for improvement, all substantiated with specific trade data references.
- *
- * @param input - The trading history to be analyzed, an array of trade objects.
- * @returns A structured analysis report in JSON format.
- */
-export async function analyzeTradingBehavior(input: AnalyzeTradingBehaviorInput): Promise<AnalyzeTradingBehaviorOutput> {
+// ─── Prompt builder — plain string, no Handlebars ────────────────────────────
+
+function buildPromptString(input: AnalyzeTradingBehaviorInput): string {
+  const marketBreakdown = Object.entries(input.winRateByMarket)
+    .map(([market, data]) => `  ${market}: ${data.winRate}% win rate (${data.total} trades)`)
+    .join('\n');
+
+  const topLosers = input.topLosingTrades
+    .map((t) => `  ${t.market} ${t.type} $${t.size} → P&L: $${t.pnl?.toFixed(2) ?? 'N/A'}`)
+    .join('\n');
+
+  const topWinners = input.topWinningTrades
+    .map((t) => `  ${t.market} ${t.type} $${t.size} → P&L: $${t.pnl?.toFixed(2) ?? 'N/A'}`)
+    .join('\n');
+
+  return `You are a professional trading psychologist and on-chain DeFi analyst specializing in Injective DEX.
+You have been given pre-computed behavioral statistics for a real trader's on-chain history.
+Your job is to find the SPECIFIC, SURPRISING patterns this trader cannot see themselves.
+Write like a direct mentor. Never use generic advice. Every insight MUST reference a specific number from the data.
+Do not invent numbers. Only use what is provided below.
+
+WALLET: ${input.walletAddress}
+TOTAL TRADES: ${input.totalTrades}
+OVERALL WIN RATE: ${input.winRate}%
+
+TRADE SIZING:
+- Average winning trade size: $${input.avgWinSize} USDT
+- Average losing trade size: $${input.avgLossSize} USDT
+- Loss/Win size ratio: ${input.sizeRatio}x
+
+ORDER TYPE PERFORMANCE:
+- MARKET orders: ${input.marketOrderCount} trades at ${input.marketOrderWinRate}% win rate
+- LIMIT orders: ${input.limitOrderCount} trades at ${input.limitOrderWinRate}% win rate
+- Gap: ${Math.abs(input.limitOrderWinRate - input.marketOrderWinRate).toFixed(1)} percentage points
+
+DAILY FATIGUE PATTERN:
+- 1st trade of day: ${input.winRateByDayPosition.first}% win rate
+- 2nd trade of day: ${input.winRateByDayPosition.second}% win rate
+- 3rd trade of day: ${input.winRateByDayPosition.third}% win rate
+- 4th+ trade of day: ${input.winRateByDayPosition.fourthPlus}% win rate
+
+PERFORMANCE BY MARKET:
+${marketBreakdown}
+
+DERIVATIVES vs SPOT:
+- Derivatives win rate: ${input.derivativeWinRate}%
+- Spot win rate: ${input.spotWinRate}%
+
+TOP 5 WORST TRADES:
+${topLosers}
+
+TOP 5 BEST TRADES:
+${topWinners}
+
+Return a JSON object with EXACTLY these four fields. No other fields. No preamble.
+
+"tradingDna": 2-3 sentences. What type of trader is this based on the data? Name the dominant pattern explicitly.
+
+"blindSpots": Three numbered blind spots. Each MUST cite a specific number from above. 3-5 sentences each. Make the trader feel you are reading their mind.
+
+"hiddenEdges": What is this trader genuinely doing well? At least 2 real edges from the data. If derivatives win rate is strong, name it explicitly.
+
+"weeklyFocus": One specific rule they can follow starting today. Reference their exact numbers to justify it. Not generic advice.`;
+}
+
+// ─── Exported function ────────────────────────────────────────────────────────
+
+export async function analyzeTradingBehavior(
+  input: AnalyzeTradingBehaviorInput
+): Promise<AnalyzeTradingBehaviorOutput> {
   return analyzeTradingBehaviorFlow(input);
 }
 
-const analyzeTradingBehaviorPrompt = ai.definePrompt({
-  name: 'analyzeTradingBehaviorPrompt',
-  input: { schema: AnalyzeTradingBehaviorInputSchema },
-  output: { schema: AnalyzeTradingBehaviorOutputSchema },
-  prompt: `You are an AI Behavioral Trading Coach. Your goal is to analyze the provided on-chain trading history and generate a personalized, insightful, and actionable report for the trader.
-
-Your analysis must cover four key areas, as specified by the output schema:
-
-1.  **Behavioral Patterns**: Identify common behaviors, biases, or tendencies in their trading actions. Provide concrete examples and reference specific trade IDs and their outcomes.
-2.  **Blind Spots**: Pinpoint specific actions or situations that consistently lead to losses or missed opportunities, costing them money. Detail the 'why' and reference specific trade IDs and their financial impact (e.g., PnL).
-3.  **Hidden Edges**: Highlight recurring strategies or circumstances that have led to successful outcomes or unexpected gains. Explain these 'edges' and reference specific trade IDs and their positive outcomes.
-4.  **This Week's Focus**: Suggest one or two clear, actionable areas for the trader to concentrate on for improvement or optimization in the upcoming week, based on the patterns identified.
-
-**Crucially, for the 'Behavioral Patterns', 'Blind Spots', and 'Hidden Edges' sections, you must explicitly reference specific trade data points from the provided history (e.g., "Trade ID 12345, a BUY at $X which resulted in a PnL of $Y, illustrates..."). Use trade IDs, entry/exit prices, PnL, and timestamps to substantiate your findings.**
-
-Here is the user's trading history in JSON format. Analyze the chronological order of trades as well:
-
-{{{json trades}}}`,
-});
+// ─── Flow — uses generateText directly, bypassing Handlebars ─────────────────
 
 const analyzeTradingBehaviorFlow = ai.defineFlow(
   {
@@ -79,10 +145,21 @@ const analyzeTradingBehaviorFlow = ai.defineFlow(
     outputSchema: AnalyzeTradingBehaviorOutputSchema,
   },
   async (input) => {
-    const { output } = await analyzeTradingBehaviorPrompt(input);
+    const promptString = buildPromptString(input);
+
+    const { output } = await ai.generate({
+      prompt: promptString,
+      output: { schema: AnalyzeTradingBehaviorOutputSchema },
+      config: {
+        temperature: 0.7,
+        maxOutputTokens: 1200,
+      },
+    });
+
     if (!output) {
-      throw new Error('AI analysis did not return an output.');
+      throw new Error('AI analysis returned no output.');
     }
+
     return output;
   }
 );
