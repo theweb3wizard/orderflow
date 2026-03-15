@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from 'react';
 import { Trade } from "@/lib/mock-data";
 
 interface StatsStripProps {
@@ -7,6 +8,12 @@ interface StatsStripProps {
 }
 
 export function StatsStrip({ trades }: StatsStripProps) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const closedTrades = trades.filter(t => t.status === 'CLOSED');
   const netPnl = closedTrades.reduce((acc, curr) => acc + (curr.pnl || 0), 0);
   const winRate = closedTrades.length > 0 
@@ -28,7 +35,9 @@ export function StatsStrip({ trades }: StatsStripProps) {
       {stats.map((stat, i) => (
         <div key={i} className="insight-card p-4 rounded-lg flex flex-col justify-center">
           <span className="text-xs uppercase tracking-wider text-muted-foreground mb-1">{stat.label}</span>
-          <span className={`text-xl font-mono-data font-semibold ${stat.color}`}>{stat.value}</span>
+          <span className={`text-xl font-mono-data font-semibold ${stat.color}`}>
+            {isMounted ? stat.value : "--"}
+          </span>
         </div>
       ))}
     </div>

@@ -1,22 +1,26 @@
-
 "use client";
 
+import { useEffect, useState } from 'react';
 import { useWallet } from '@/hooks/use-wallet';
 import { Navigation } from '@/components/Navigation';
-import { MOCK_TRADES, MOCK_ANALYSIS } from '@/lib/mock-data';
+import { MOCK_TRADES, MOCK_ANALYSIS, Trade } from '@/lib/mock-data';
 import { StatsStrip } from '@/components/StatsStrip';
 import { Button } from '@/components/ui/button';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowRight, Calendar, Hash } from 'lucide-react';
-import Head from 'next/head';
 
 export default function ReportPage() {
   const { address } = useWallet();
   const router = useRouter();
   const params = useParams();
+  const [trades, setTrades] = useState<Trade[]>([]);
   
   const reportWallet = "0x71...d897";
   const reportDate = "October 24, 2024";
+
+  useEffect(() => {
+    setTrades(MOCK_TRADES.slice(0, 50));
+  }, []);
 
   const renderContent = (text: string) => {
     const sections = text.split(/(## [A-Z0-9 ]+)/g);
@@ -41,13 +45,6 @@ export default function ReportPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Head>
-        <title>OrderFlow | Trading Behavioral Report</title>
-        <meta property="og:title" content="Trading Behavioral Audit | OrderFlow" />
-        <meta property="og:description" content="Check out my hidden trading edges and blind spots revealed by AI." />
-        <meta property="og:image" content="https://picsum.photos/seed/report/1200/630" />
-      </Head>
-      
       <Navigation />
       
       <main className="flex-1 container mx-auto px-6 py-12 max-w-4xl">
@@ -79,7 +76,7 @@ export default function ReportPage() {
         </header>
 
         <div className="mb-12">
-          <StatsStrip trades={MOCK_TRADES.slice(0, 50)} />
+          <StatsStrip trades={trades} />
         </div>
 
         <div className="insight-card rounded-2xl p-10 font-body analysis-content mb-12">

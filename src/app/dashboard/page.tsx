@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useWallet } from '@/hooks/use-wallet';
 import { Navigation } from '@/components/Navigation';
-import { MOCK_TRADES, MOCK_ANALYSIS } from '@/lib/mock-data';
+import { MOCK_TRADES, MOCK_ANALYSIS, Trade } from '@/lib/mock-data';
 import { StatsStrip } from '@/components/StatsStrip';
 import { TradeTable } from '@/components/TradeTable';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,12 @@ export default function Dashboard() {
   const { isDemoMode, address } = useWallet();
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [trades, setTrades] = useState<Trade[]>([]);
+
+  useEffect(() => {
+    // Hydration safe: Only set trades on client mount
+    setTrades(MOCK_TRADES);
+  }, []);
 
   const handleAnalyze = () => {
     setIsLoading(true);
@@ -51,16 +57,16 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <StatsStrip trades={MOCK_TRADES} />
+        <StatsStrip trades={trades} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Trade History */}
           <div className="lg:col-span-2 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-headline font-bold">Trade History</h2>
-              <span className="text-xs text-muted-foreground uppercase tracking-widest">{MOCK_TRADES.length} POSITIONS</span>
+              <span className="text-xs text-muted-foreground uppercase tracking-widest">{trades.length} POSITIONS</span>
             </div>
-            <TradeTable trades={MOCK_TRADES} />
+            <TradeTable trades={trades} />
           </div>
 
           {/* AI Analysis Sidebar Card */}

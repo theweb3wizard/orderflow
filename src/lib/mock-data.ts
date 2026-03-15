@@ -1,4 +1,3 @@
-
 export interface Trade {
   id: string;
   market: string;
@@ -22,24 +21,31 @@ const generateMockTrades = (count: number): Trade[] => {
     const isClosed = i > 5; // Most are closed for analysis
     const type = Math.random() > 0.5 ? 'BUY' : 'SELL';
     
-    // Pattern: 1. Revenge Trading (larger size after losses)
-    // Pattern: 2. Market order performance is worse than limit
-    const lastPnl = trades.length > 0 ? trades[trades.length - 1].pnl || 0 : 0;
-    const quantity = lastPnl < 0 ? (0.5 + Math.random() * 5) : (0.1 + Math.random() * 1.5);
+    // BEHAVIORAL PATTERN: Revenge Trading
+    // If the previous trade was a loss, the next one has a higher chance of being a MARKET order with larger size.
+    const lastTrade = trades.length > 0 ? trades[trades.length - 1] : null;
+    const wasLastTradeLoss = lastTrade && lastTrade.pnl && lastTrade.pnl < 0;
     
-    const orderType = Math.random() > 0.7 ? 'LIMIT' : 'MARKET';
+    let quantity = 0.1 + Math.random() * 1.5;
+    let orderType: 'MARKET' | 'LIMIT' = Math.random() > 0.7 ? 'LIMIT' : 'MARKET';
+    
+    if (wasLastTradeLoss) {
+      quantity *= (1.5 + Math.random()); // Increase size by 50-150%
+      orderType = 'MARKET'; // Revenge traders often rush entries
+    }
+    
     const market = markets[Math.floor(Math.random() * markets.length)];
-    
     const entryPrice = 1500 + Math.random() * 500;
     
-    // Pattern: LIMIT orders have better outcomes in this mock
-    const performanceBias = orderType === 'LIMIT' ? 0.02 : -0.01;
-    const exitPrice = isClosed ? entryPrice * (1 + (Math.random() * 0.1 - 0.05 + performanceBias)) : null;
+    // BEHAVIORAL PATTERN: Limit Edge
+    // LIMIT orders perform better in this mock environment
+    const performanceBias = orderType === 'LIMIT' ? 0.03 : -0.015;
+    const exitPrice = isClosed ? entryPrice * (1 + (Math.random() * 0.08 - 0.04 + performanceBias)) : null;
     
     const pnl = isClosed && exitPrice ? (exitPrice - entryPrice) * quantity * (type === 'BUY' ? 1 : -1) : null;
     
     const date = new Date(baseDate);
-    date.setMinutes(date.getMinutes() - i * 45); // Denser trade history
+    date.setMinutes(date.getMinutes() - i * 45);
 
     trades.push({
       id: `TRD-${1000 + i}`,

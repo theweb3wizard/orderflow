@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Trade } from '@/lib/mock-data';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -13,14 +12,28 @@ interface TradeTableProps {
 }
 
 export function TradeTable({ trades }: TradeTableProps) {
+  const [isMounted, setIsMounted] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const totalPages = Math.ceil(trades.length / itemsPerPage);
 
   const paginatedTrades = trades.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  if (!isMounted) {
+    return (
+      <div className="rounded-md border border-white/5 bg-[#13131A] h-[600px] flex items-center justify-center">
+        <span className="text-muted-foreground animate-pulse">Loading trade history...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -73,7 +86,7 @@ export function TradeTable({ trades }: TradeTableProps) {
 
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
-          Page {currentPage} of {totalPages}
+          Page {currentPage} of {totalPages || 1}
         </span>
         <div className="flex gap-2">
           <Button
@@ -89,7 +102,7 @@ export function TradeTable({ trades }: TradeTableProps) {
             variant="outline"
             size="sm"
             onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-            disabled={currentPage === totalPages}
+            disabled={currentPage === totalPages || totalPages === 0}
             className="border-white/10 hover:bg-white/5"
           >
             Next <ChevronRight className="w-4 h-4 ml-1" />
