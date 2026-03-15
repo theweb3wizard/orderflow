@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useRef } from 'react';
@@ -19,6 +18,7 @@ export function AnalysisPanel({ isOpen, onOpenChange, fullContent }: AnalysisPan
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Streaming Typewriter Effect
   useEffect(() => {
     if (isOpen) {
       setDisplayedText("");
@@ -28,22 +28,26 @@ export function AnalysisPanel({ isOpen, onOpenChange, fullContent }: AnalysisPan
         if (index < fullContent.length) {
           setDisplayedText((prev) => prev + fullContent[index]);
           index++;
-          if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-          }
         } else {
           setIsStreaming(false);
           clearInterval(interval);
         }
-      }, 18); // Typing speed exact to PRD
+      }, 18); // PRD exact speed: 18ms per character
       return () => clearInterval(interval);
     }
   }, [isOpen, fullContent]);
 
+  // Auto-scroll to bottom as text streams
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [displayedText]);
+
   const handleShare = () => {
-    const text = encodeURIComponent("Just revealed my hidden trading edges with OrderFlow AI. Check the report: ");
-    const url = `https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(window.location.href)}`;
-    window.open(url, '_blank');
+    const text = "Just revealed my hidden trading edges with OrderFlow AI. Check the report: ";
+    const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`;
+    window.open(shareUrl, '_blank');
   };
 
   const handleSave = () => {
@@ -53,14 +57,15 @@ export function AnalysisPanel({ isOpen, onOpenChange, fullContent }: AnalysisPan
     });
   };
 
+  // High-fidelity Markdown Parser for AI content
   const renderContent = (text: string) => {
-    const sections = text.split(/(## [A-Z0-9 ]+)/g);
+    const sections = text.split(/(## [A-Z0-9' ]+)/g);
     return sections.map((part, i) => {
       if (part.startsWith('## ')) {
         return <h2 key={i}>{part.replace('## ', '')}</h2>;
       }
       
-      // Basic bolding logic for **text**
+      // Split by bold markdown markers
       const boldParts = part.split(/(\*\*.*?\*\*)/g);
       return (
         <p key={i}>
