@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useWallet } from '@/hooks/use-wallet';
@@ -7,28 +8,46 @@ import { StatsStrip } from '@/components/StatsStrip';
 import { Button } from '@/components/ui/button';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowRight, Calendar, Hash } from 'lucide-react';
+import Head from 'next/head';
 
 export default function ReportPage() {
   const { address } = useWallet();
   const router = useRouter();
   const params = useParams();
   
-  // Truncated wallet for the report
   const reportWallet = "0x71...d897";
   const reportDate = "October 24, 2024";
 
   const renderContent = (text: string) => {
-    const sections = text.split(/(## [A-Z ]+)/g);
+    const sections = text.split(/(## [A-Z0-9 ]+)/g);
     return sections.map((part, i) => {
       if (part.startsWith('## ')) {
         return <h2 key={i}>{part.replace('## ', '')}</h2>;
       }
-      return <p key={i}>{part}</p>;
+      
+      const boldParts = part.split(/(\*\*.*?\*\*)/g);
+      return (
+        <p key={i}>
+          {boldParts.map((bp, j) => {
+            if (bp.startsWith('**') && bp.endsWith('**')) {
+              return <strong key={j} className="text-white font-bold">{bp.slice(2, -2)}</strong>;
+            }
+            return bp;
+          })}
+        </p>
+      );
     });
   };
 
   return (
     <div className="min-h-screen flex flex-col">
+      <Head>
+        <title>OrderFlow | Trading Behavioral Report</title>
+        <meta property="og:title" content="Trading Behavioral Audit | OrderFlow" />
+        <meta property="og:description" content="Check out my hidden trading edges and blind spots revealed by AI." />
+        <meta property="og:image" content="https://picsum.photos/seed/report/1200/630" />
+      </Head>
+      
       <Navigation />
       
       <main className="flex-1 container mx-auto px-6 py-12 max-w-4xl">

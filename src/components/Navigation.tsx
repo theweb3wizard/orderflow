@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -40,10 +41,11 @@ export function Navigation() {
         <div className="flex items-center gap-4">
           {address ? (
             <div className="flex items-center gap-4">
-              <span className="font-mono-data text-sm text-muted-foreground bg-card px-3 py-1 rounded-md border border-white/5">
+              <div className="flex items-center gap-2 font-mono-data text-sm text-muted-foreground bg-card px-3 py-1 rounded-md border border-white/5">
+                <div className="w-2 h-2 rounded-full bg-status-buy shadow-[0_0_8px_rgba(0,208,132,0.8)]" />
                 {address.slice(0, 6)}...{address.slice(-4)}
-              </span>
-              <Button variant="ghost" size="sm" onClick={handleDisconnect}>
+              </div>
+              <Button variant="ghost" size="sm" onClick={handleDisconnect} className="text-xs">
                 Disconnect
               </Button>
             </div>

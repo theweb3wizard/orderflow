@@ -1,6 +1,7 @@
 
 export interface Trade {
   id: string;
+  market: string;
   type: 'BUY' | 'SELL';
   orderType: 'MARKET' | 'LIMIT';
   status: 'OPEN' | 'CLOSED';
@@ -9,26 +10,40 @@ export interface Trade {
   quantity: number;
   pnl: number | null;
   timestamp: string;
+  txHash: string;
 }
 
 const generateMockTrades = (count: number): Trade[] => {
   const trades: Trade[] = [];
   const baseDate = new Date();
+  const markets = ['INJ/USDT', 'ETH/USDT', 'BTC/USDT', 'SOL/USDT', 'ATOM/USDT'];
   
   for (let i = 0; i < count; i++) {
-    const isClosed = i > 10; // First few are open
+    const isClosed = i > 5; // Most are closed for analysis
     const type = Math.random() > 0.5 ? 'BUY' : 'SELL';
+    
+    // Pattern: 1. Revenge Trading (larger size after losses)
+    // Pattern: 2. Market order performance is worse than limit
+    const lastPnl = trades.length > 0 ? trades[trades.length - 1].pnl || 0 : 0;
+    const quantity = lastPnl < 0 ? (0.5 + Math.random() * 5) : (0.1 + Math.random() * 1.5);
+    
     const orderType = Math.random() > 0.7 ? 'LIMIT' : 'MARKET';
+    const market = markets[Math.floor(Math.random() * markets.length)];
+    
     const entryPrice = 1500 + Math.random() * 500;
-    const exitPrice = isClosed ? entryPrice * (1 + (Math.random() * 0.1 - 0.04)) : null;
-    const quantity = 0.1 + Math.random() * 2;
+    
+    // Pattern: LIMIT orders have better outcomes in this mock
+    const performanceBias = orderType === 'LIMIT' ? 0.02 : -0.01;
+    const exitPrice = isClosed ? entryPrice * (1 + (Math.random() * 0.1 - 0.05 + performanceBias)) : null;
+    
     const pnl = isClosed && exitPrice ? (exitPrice - entryPrice) * quantity * (type === 'BUY' ? 1 : -1) : null;
     
     const date = new Date(baseDate);
-    date.setHours(date.getHours() - i * 2);
+    date.setMinutes(date.getMinutes() - i * 45); // Denser trade history
 
     trades.push({
       id: `TRD-${1000 + i}`,
+      market,
       type,
       orderType,
       status: isClosed ? 'CLOSED' : 'OPEN',
@@ -37,6 +52,7 @@ const generateMockTrades = (count: number): Trade[] => {
       quantity,
       pnl,
       timestamp: date.toISOString(),
+      txHash: `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`,
     });
   }
   return trades;
@@ -44,15 +60,17 @@ const generateMockTrades = (count: number): Trade[] => {
 
 export const MOCK_TRADES = generateMockTrades(200);
 
-export const MOCK_ANALYSIS = `## BEHAVIORAL PATTERNS
-Your trading history reveals a strong tendency towards 'Revenge Trading' following minor losses. Specifically, after Trade ID TRD-1042 (a SELL at $1642.50 which resulted in a PnL of -$145.20), you immediately entered three high-leverage MARKET orders within 15 minutes. This suggests emotional decision-making rather than strategy-based execution.
+export const MOCK_ANALYSIS = `## YOUR TRADING DNA
+Your history reveals a "Revenge Trader" profile. After Trade ID **TRD-1042** (a loss of -$442.10), your next four trades were **3x larger** in size and executed via MARKET orders within 22 minutes. This emotional response accounts for 64% of your total monthly drawdown.
 
-## BLIND SPOTS
-You consistently struggle with 'Exit Fatigue' on winning positions. Data from Trade ID TRD-1088 and TRD-1102 shows that you held onto 10% profit positions until they retraced to break-even or minor losses. This 'Round Tripping' of profits has cost you an estimated $1,240 in realized gains over the last 30 days.
+## YOUR 3 BIGGEST BLIND SPOTS
+1. **The Market Premium**: Your MARKET orders on **INJ/USDT** have a 78% failure rate compared to your LIMIT entries. You are paying for liquidity in highly volatile moments.
+2. **The 3-Trade Rule**: Your win rate drops from 62% to 18% after your 3rd trade of the day. Mental fatigue is visibly impacting your execution.
+3. **Exit Hesitation**: Trade **TRD-1088** shows you held a 12% winner until it became a -2% loss. You lack a mechanical profit-taking framework.
 
-## HIDDEN EDGES
-You have a remarkable success rate with LIMIT orders placed during low-volatility Asian market hours. Trade ID TRD-1156, a LIMIT BUY that executed at $1520.10, exemplifies your ability to pick local bottoms when not pressured by high-frequency movements. Your win rate for LIMIT orders is 68% compared to 42% for MARKET orders.
+## YOUR HIDDEN EDGES
+You are in the top 5% of traders when using LIMIT orders on **ATOM** and **INJ** pairs. Your patience on **TRD-1156** allowed you to capture the exact local bottom. Your "Limit Edge" is currently generating a 4.2 Profit Factor.
 
-## WEEKLY FOCUS
-1. Implement a 'Cool Down' timer: After any realized loss exceeding $100, wait 2 hours before opening a new position to mitigate revenge trading impulses.
-2. Tighten Stop Profits: For positions currently up >5%, move your stop loss to lock in at least 2% profit immediately to prevent round-tripping.`;
+## THIS WEEK'S FOCUS
+1. **Enforce a 2-Hour Lock**: After any loss > $200, the app will simulate a lockout to prevent revenge scaling.
+2. **Limit-Only execution**: For the next 10 trades, you are forbidden from using MARKET orders to retrain your entry patience.`;

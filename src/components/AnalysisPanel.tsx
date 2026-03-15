@@ -1,9 +1,10 @@
+
 "use client";
 
 import { useEffect, useState, useRef } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Share2, Save, Download, Loader2 } from "lucide-react";
+import { Share2, Save, Loader2 } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 
 interface AnalysisPanelProps {
@@ -34,16 +35,15 @@ export function AnalysisPanel({ isOpen, onOpenChange, fullContent }: AnalysisPan
           setIsStreaming(false);
           clearInterval(interval);
         }
-      }, 10); // Typing speed
+      }, 18); // Typing speed exact to PRD
       return () => clearInterval(interval);
     }
   }, [isOpen, fullContent]);
 
   const handleShare = () => {
-    toast({
-      title: "Shared on X",
-      description: "Link to your report has been generated.",
-    });
+    const text = encodeURIComponent("Just revealed my hidden trading edges with OrderFlow AI. Check the report: ");
+    const url = `https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(window.location.href)}`;
+    window.open(url, '_blank');
   };
 
   const handleSave = () => {
@@ -53,14 +53,25 @@ export function AnalysisPanel({ isOpen, onOpenChange, fullContent }: AnalysisPan
     });
   };
 
-  // Simple Markdown-ish to HTML parser for the analysis output
   const renderContent = (text: string) => {
-    const sections = text.split(/(## [A-Z ]+)/g);
+    const sections = text.split(/(## [A-Z0-9 ]+)/g);
     return sections.map((part, i) => {
       if (part.startsWith('## ')) {
         return <h2 key={i}>{part.replace('## ', '')}</h2>;
       }
-      return <p key={i}>{part}</p>;
+      
+      // Basic bolding logic for **text**
+      const boldParts = part.split(/(\*\*.*?\*\*)/g);
+      return (
+        <p key={i}>
+          {boldParts.map((bp, j) => {
+            if (bp.startsWith('**') && bp.endsWith('**')) {
+              return <strong key={j} className="text-white font-bold">{bp.slice(2, -2)}</strong>;
+            }
+            return bp;
+          })}
+        </p>
+      );
     });
   };
 
