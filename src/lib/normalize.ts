@@ -15,7 +15,15 @@ import { RawSpotTrade, RawDerivativeTrade, MarketMeta, resolveMarketTicker } fro
 function toHumanPrice(val: any): number | null {
   const n = parseFloat(String(val));
   if (isNaN(n) || n === 0) return null;
-  if (n > 0 && n < 0.0001) return n * 1e18;
+  // Cap at realistic crypto price range: $0.0001 to $100,000
+  // Anything outside this range from a raw SDK value is unscaled garbage
+  if (n > 0 && n < 0.0001) {
+    const scaled = n * 1e18;
+    // Only return if scaled value is in realistic range
+    return scaled < 100000 ? scaled : null;
+  }
+  // If already > $100,000 it's raw and unscaleable without market decimals
+  if (n > 100000) return null;
   return n;
 }
 
