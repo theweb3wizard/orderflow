@@ -82,7 +82,7 @@ async function getSpotMarkets(): Promise<MarketMeta[]> {
   }
   try {
     const response: any = await spotApi.fetchMarkets({});
-    _spotMarketsCache = response.markets.map((m: any) => ({
+    _spotMarketsCache = (Array.isArray(response) ? response : response.markets ?? []).map((m: any) => ({
       marketId: m.marketId,
       ticker: m.ticker,
       marketType: 'spot' as const,
@@ -104,7 +104,7 @@ async function getDerivativeMarkets(): Promise<MarketMeta[]> {
   }
   try {
     const response: any = await derivativesApi.fetchMarkets({});
-    _derivMarketsCache = response.markets.map((m: any) => ({
+    _derivMarketsCache = (Array.isArray(response) ? response : response.markets ?? []).map((m: any) => ({
       marketId: m.marketId,
       ticker: m.ticker,
       marketType: 'derivative' as const,
