@@ -62,15 +62,12 @@ export function TradeTable({ trades }: TradeTableProps) {
             {paginatedTrades.map((trade) => (
               <TableRow key={trade.id} className="border-white/5 hover:bg-white/[0.02]">
 
-                {/* Date */}
                 <TableCell className="font-mono-data text-xs py-3 text-muted-foreground">
                   {formatDate(trade.timestamp)}
                 </TableCell>
 
-                {/* Market */}
                 <TableCell className="font-bold py-3 text-sm">{trade.market}</TableCell>
 
-                {/* Direction badge */}
                 <TableCell className="py-3">
                   <Badge
                     className={
@@ -83,17 +80,18 @@ export function TradeTable({ trades }: TradeTableProps) {
                   </Badge>
                 </TableCell>
 
-                {/* Size in USDT */}
                 <TableCell className="font-mono-data text-sm text-right py-3">
-                  ${trade.size.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {trade.size != null
+                    ? '$' + trade.size.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : '—'}
                 </TableCell>
 
-                {/* Entry price */}
                 <TableCell className="font-mono-data text-sm text-right py-3 text-muted-foreground">
-                  ${trade.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {trade.price != null
+                    ? '$' + trade.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : '—'}
                 </TableCell>
 
-                {/* Order type badge */}
                 <TableCell className="py-3">
                   <Badge
                     variant="outline"
@@ -107,7 +105,6 @@ export function TradeTable({ trades }: TradeTableProps) {
                   </Badge>
                 </TableCell>
 
-                {/* P&L */}
                 <TableCell
                   className={`font-mono-data text-sm text-right py-3 ${
                     trade.pnl !== null && trade.pnl > 0
@@ -122,16 +119,19 @@ export function TradeTable({ trades }: TradeTableProps) {
                     : '—'}
                 </TableCell>
 
-                {/* Verify on-chain link — uses real txHash */}
                 <TableCell className="py-3 text-right">
-                  <a
-                    href={`https://explorer.injective.network/transaction/${trade.txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[10px] text-muted-foreground hover:text-primary flex items-center gap-1 ml-auto transition-colors duration-200"
-                  >
-                    Verify <ExternalLink className="w-2.5 h-2.5" />
-                  </a>
+                  {trade.txHash && trade.txHash.length === 66 ? (
+                    <a
+                      href={`https://explorer.injective.network/transaction/${trade.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-muted-foreground hover:text-primary flex items-center gap-1 ml-auto transition-colors duration-200"
+                    >
+                      Verify <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  ) : (
+                    <span className="text-[10px] text-[#6366F1] ml-auto font-mono">demo</span>
+                  )}
                 </TableCell>
 
               </TableRow>
@@ -140,7 +140,6 @@ export function TradeTable({ trades }: TradeTableProps) {
         </Table>
       </div>
 
-      {/* Pagination */}
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
           Page {currentPage} of {totalPages || 1} &nbsp;·&nbsp; {trades.length} total trades
