@@ -6,20 +6,35 @@
 import { Trade } from './mock-data';
 import { RawSpotTrade, RawDerivativeTrade, MarketMeta, resolveMarketTicker } from './injective';
 
-// ─── Safe number parser ───────────────────────────────────────────────────────
-// The SDK returns prices in various formats depending on version.
-// This handles all cases defensively.
+// ─── Price scaling ────────────────────────────────────────────────────────────
+// Injective's SDK returns raw blockchain values (1e18 scaled) for some markets.
+// Human-readable crypto prices are between $0.0001 and $1,000,000.
+// Raw values are like 1.6e-12 — multiply by 1e18 to get the real price.
+// Quantities > 1e10 are also raw — divide by 1e18.
+
+function toHumanPrice(val: any): number | null {
+  const n = parseFloat(String(val));
+  if (isNaN(n) || n === 0) return null;
+  if (n > 0 && n < 0.0001) return n * 1e18;
+  return n;
+}
+
+function toHumanQuantity(val: any): number | null {
+  const n = parseFloat(String(val));
+  if (isNaN(n) || n === 0) return null;
+  if (n > 1e10) return n / 1e18;
+  return n;
+}
 
 function safeParseFloat(val: any): number | null {
-  if (val === null || val === undefined) return null;
-  const n = typeof val === 'string' ? parseFloat(val) : Number(val);
+  const n = parseFloat(String(val));
   return isNaN(n) ? null : n;
 }
 
 // ─── Spot Trade Normalization ─────────────────────────────────────────────────
 
 export function normalizeSpotTrade(
-  raw: any, // Use 'any' to handle real SDK shape variations
+  raw: any,
   allMarkets: MarketMeta[]
 ): Trade | null {
   try {
@@ -32,31 +47,27 @@ export function normalizeSpotTrade(
     const type: 'BUY' | 'SELL' =
       raw.tradeDirection === 'buy' ? 'BUY' : 'SELL';
 
-    // Handle multiple possible SDK response shapes:
-    // Shape A: raw.price.price + raw.price.quantity (our original assumption)
-    // Shape B: raw.executionPrice + raw.executionQuantity (derivative-style)
-    // Shape C: raw.price as a string directly
-    let price: number | null = null;
-    let quantity: number | null = null;
+    // Extract raw price and quantity from whichever shape the SDK returns
+    let rawPriceVal: any = null;
+    let rawQtyVal: any = null;
 
     if (raw.price && typeof raw.price === 'object') {
-      price = safeParseFloat(raw.price.price);
-      quantity = safeParseFloat(raw.price.quantity);
+      rawPriceVal = raw.price.price;
+      rawQtyVal = raw.price.quantity;
     } else if (raw.price && typeof raw.price === 'string') {
-      price = safeParseFloat(raw.price);
-      quantity = safeParseFloat(raw.quantity);
+      rawPriceVal = raw.price;
+      rawQtyVal = raw.quantity;
     } else if (raw.executionPrice) {
-      price = safeParseFloat(raw.executionPrice);
-      quantity = safeParseFloat(raw.executionQuantity);
+      rawPriceVal = raw.executionPrice;
+      rawQtyVal = raw.executionQuantity;
     }
 
-    // Size in USDT = price × quantity
-    // If both are null, size stays null — shown as "—" in table
+    const price = toHumanPrice(rawPriceVal);
+    const quantity = toHumanQuantity(rawQtyVal);
     const size = (price !== null && quantity !== null)
       ? Math.round(price * quantity * 100) / 100
       : null;
 
-    // executedAt can be ms timestamp or ISO string
     const rawTimestamp = raw.executedAt ?? raw.timestamp;
     const timestamp = typeof rawTimestamp === 'number'
       ? new Date(rawTimestamp).toISOString()
@@ -70,10 +81,10 @@ export function normalizeSpotTrade(
       type,
       orderType,
       status: 'CLOSED',
-      size: size as any, // null is valid — table shows "—"
+      size: size as any,
       price: price as any,
       exitPrice: null,
-      pnl: null, // Spot trades: P&L requires FIFO matching (post-hackathon)
+      pnl: null,
       timestamp,
       txHash,
     };
@@ -99,8 +110,8 @@ export function normalizeDerivativeTrade(
     const type: 'BUY' | 'SELL' =
       raw.tradeDirection === 'buy' ? 'BUY' : 'SELL';
 
-    const price = safeParseFloat(raw.executionPrice);
-    const quantity = safeParseFloat(raw.executionQuantity);
+    const price = toHumanPrice(raw.executionPrice);
+    const quantity = toHumanQuantity(raw.executionQuantity);
     const size = (price !== null && quantity !== null)
       ? Math.round(price * quantity * 100) / 100
       : null;
@@ -283,7 +294,10 @@ export function computeBehavioralStats(trades: Trade[]): BehavioralStats {
   for (const dayTrades of Object.values(tradesByDay)) {
     dayTrades.forEach((trade, idx) => {
       if (trade.pnl === null) return;
-      const key = idx === 0 ? 'first' : idx === 1 ? 'second' : idx === 2 ? 'third' : 'fourthPlus';
+      const key = idx === 0 ? 'first'
+        : idx === 1 ? 'second'
+        : idx === 2 ? 'third'
+        : 'fourthPlus';
       positionStats[key].t++;
       if (trade.pnl > 0) positionStats[key].w++;
     });
